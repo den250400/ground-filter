@@ -1,4 +1,5 @@
 #include "simple_hdl_viewer.h"
+#include "ground_filter.h"
 
 
 int main (int argc, char ** argv)
@@ -13,7 +14,7 @@ int main (int argc, char ** argv)
 
   pcl::visualization::PointCloudColorHandlerGenericField<pcl::PointXYZI> color_handler ("intensity");
 
-  SimpleHDLViewer viewer (grabber, color_handler);
+  GroundFilter::SimpleHDLViewer viewer (grabber, color_handler, GroundFilter::groundFilter);
   viewer.run ();
   return (0);
 }

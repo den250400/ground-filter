@@ -4,21 +4,27 @@ using namespace std::chrono_literals;
 using namespace pcl::console;
 using namespace pcl::visualization;
 
-SimpleHDLViewer::SimpleHDLViewer(pcl::Grabber& grabber,
-                                 pcl::visualization::PointCloudColorHandler<pcl::PointXYZI>& handler) :
-    cloud_viewer_(new pcl::visualization::PCLVisualizer("PCL HDL Cloud")),
+GroundFilter::SimpleHDLViewer::SimpleHDLViewer(pcl::Grabber& grabber,
+                                 pcl::visualization::PointCloudColorHandler<pcl::PointXYZI>& handler,
+                                 std::function<void(CloudPtr)> filter_function) :
+    cloud_viewer_(new pcl::visualization::PCLVisualizer("PCL cloud viewer")),
     grabber_(grabber),
-    handler_(handler)
+    handler_(handler),
+    cloud_(new Cloud),
+    filter_function_(filter_function)
 {
 }
 
-void SimpleHDLViewer::cloud_callback(const CloudConstPtr& cloud)
+void GroundFilter::SimpleHDLViewer::cloudCallback(const CloudConstPtr& cloud)
 {
   std::lock_guard<std::mutex> lock(cloud_mutex_);
-  cloud_ = cloud;
+  
+  cloud_ = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
+  pcl::copyPointCloud(*cloud, *cloud_);
+  filter_function_(cloud_);
 }
 
-void SimpleHDLViewer::run()
+void GroundFilter::SimpleHDLViewer::run()
 {
   cloud_viewer_->addCoordinateSystem(3.0);
   cloud_viewer_->setBackgroundColor(0, 0, 0);
@@ -27,7 +33,7 @@ void SimpleHDLViewer::run()
   cloud_viewer_->setCameraClipDistances(0.0, 50.0);
 
   std::function<void(const CloudConstPtr&)> cloud_cb =
-      [this](const CloudConstPtr& cloud) { cloud_callback(cloud); };
+      [this](const CloudConstPtr& cloud) { cloudCallback(cloud); };
   boost::signals2::connection cloud_connection = grabber_.registerCallback(
       cloud_cb);
 
@@ -35,7 +41,7 @@ void SimpleHDLViewer::run()
 
   while (!cloud_viewer_->wasStopped())
   {
-    CloudConstPtr cloud;
+    CloudPtr cloud;
 
     // See if we can get a cloud
     if (cloud_mutex_.try_lock())
