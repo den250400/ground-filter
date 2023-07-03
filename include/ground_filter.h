@@ -58,7 +58,6 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr filterPointCloudByDistance(const pcl::Point
     {
         // Calculate the distance from the point to the plane
         float distance = pcl::pointToPlaneDistanceSigned(point, a, b, c, d);
-        //std::cout << distance << std::endl;
 
         // Check if the point is farther than the threshold from the plane
         if (std::abs(distance) > dist_threshold)
@@ -71,31 +70,29 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr filterPointCloudByDistance(const pcl::Point
     return filteredCloud;
 }
 
-void groundFilter(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud)
+void groundFilter(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud, float dist_thresh, float normal_max_degrees, float eps_angle, int max_iters)
 {
-    float dist_thresh = 0.15;
-    bool extract_inliers = false;
-
     pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud(new pcl::PointCloud<pcl::PointXYZI>);
-    filterPointCloudByNormalAngle(cloud, pcl::Normal(0, 0, 1), 10, filtered_cloud);
+    filterPointCloudByNormalAngle(cloud, pcl::Normal(0, 0, 1), normal_max_degrees, filtered_cloud);
 
     // Set up RANSAC
     pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
     pcl::SACSegmentation<pcl::PointXYZI> seg;
-    seg.setMaxIterations(100);
+    seg.setMaxIterations(max_iters);
     seg.setOptimizeCoefficients(true);
     seg.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);
     seg.setAxis(Eigen::Vector3f::UnitZ());
-    seg.setEpsAngle((5.*M_PI)/180.);
+    seg.setEpsAngle(eps_angle);
     seg.setMethodType(pcl::SAC_RANSAC);
     seg.setDistanceThreshold(dist_thresh);
 
+    // Perform RANSAC segmentation
     seg.setInputCloud(filtered_cloud);
     seg.segment(*inliers, *coefficients);
 
     // Filter the pointcloud using the obtained inlier indices
-    pcl::copyPointCloud(*(filterPointCloudByDistance(cloud, coefficients->values, dist_threshold)), *cloud);
+    pcl::copyPointCloud(*(filterPointCloudByDistance(cloud, coefficients->values, dist_thresh)), *cloud);
 }
 
 }
